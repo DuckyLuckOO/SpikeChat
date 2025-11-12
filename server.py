@@ -1,26 +1,36 @@
-import socket
+import socket, threading
 from database.database import add_user, save_message, get_conn, list_messages_for, init_db
 
-init_db()
-s = socket.socket()
-s.bind(("0.0.0.0", 5000))
-s.listen(1)
-print("Server ready on port 5000...")
-user_ip = ""
+clients = set()
+lock = threading.Lock()
 
-while True:
-    conn, addr = s.accept()
-    user_ip, port = addr
-    add_user(str(user_ip))
-    
-    
-    # if user_ip == "127.0.0.1":
-    #     break
-    # else:
-    #     print("Connection tried by " + user_ip + ":" + port)
-    #     conn.sendall(b"You snicky spike, ain't no way you can spike our spike")
-    #     conn.close()
-    break
+def handle_client(conn, addr):
+    with conn:
+        with lock: clients.add(conn)
+        try:
+            while True:
+                data = conn.recv(4096)
+                if not data:  # client closed
+                    break
+                msg = f"{addr[0]}: {data.decode(errors='replace')}"
+                print(msg)
+                # echo to the sender only:
+                # conn.sendall(msg.encode())
+                # OR broadcast to everyone:
+                with lock:
+                    dead = []
+                    for c in clients:
+                        try:
+                            c.sendall(msg.encode())
+                        except Exception:
+                            dead.append(c)
+                    for d in dead:
+                        clients.discard(d)
+        finally:
+            with lock:
+                clients.discard(conn)
+    print(f"[disconnected] {addr}")
+
 
 RED     = "\033[91m"
 GREEN   = "\033[92m"
@@ -43,12 +53,21 @@ logo = rf"""
        |_|          {CYAN}💬  SpikeChat Connected  💬{RESET}
 """
 print(logo + RESET)
-
-
-while True:
-    data = conn.recv(1024)
-    if data:
-        message = user_ip + " : " + data.decode()
-        print("Client:", data.decode())
-        conn.sendall(message.encode())
         
+def main():
+    s = socket.socket()
+    s.bind(("0.0.0.0", 5000))
+    s.listen(16)
+    print(f"Server ready on 0.0.0.0:5000 ...")
+    try:
+        while True:
+            conn, addr = s.accept()
+            print(f"[connected] {addr}")
+            threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+    finally:
+        s.close()
+
+if __name__ == "__main__":
+    main()
