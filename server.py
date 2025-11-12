@@ -55,7 +55,7 @@ logo = rf"""
 print(logo + RESET)
         
 def main():
-    s = socket.socket()
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(("0.0.0.0", 5000))
     s.listen(16)
     print(f"Server ready on 0.0.0.0:5000 ...")

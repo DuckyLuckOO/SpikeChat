@@ -3,7 +3,7 @@ import threading
 import sys
 
 s = socket.socket()
-s.connect(("127.0.0.1", 5000))
+s.connect(("83.228.213.210", 5000))
 
 RED     = "\033[91m"
 GREEN   = "\033[92m"
